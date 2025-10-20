@@ -8,7 +8,6 @@ import {
 import { ethers } from 'ethers';
 import { createPublicClient, http, LocalAccount, PublicClient } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { polygonAmoy } from 'viem/chains';
 import {
   conditions,
   decrypt,
@@ -43,7 +42,6 @@ describe
     [
       'viem',
       createPublicClient({
-        chain: polygonAmoy,
         transport: http(RPC_PROVIDER_URL),
       }),
       privateKeyToAccount(ENCRYPTOR_PRIVATE_KEY),
@@ -61,7 +59,7 @@ describe
       if (provider instanceof ethers.providers.Provider) {
         chainId = (await provider.getNetwork()).chainId;
       } else {
-        chainId = provider.chain!.id as number;
+        chainId = await provider.getChainId();
       }
       if (chainId !== CHAIN_ID) {
         throw new Error(

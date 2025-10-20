@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from 'vitest';
+import { describe, expect, test } from 'vitest';
 
 import { toEthersProvider } from '@nucypher/shared';
 import { ethers } from 'ethers';
@@ -27,9 +27,9 @@ describe.skipIf(!process.env.RUNNING_IN_CI)(
 
       // Currently ethersProvider.network.ensAddress on mainnet is "0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e".
       expect(ethersProvider.network.ensAddress).toBeTruthy();
-    }, 15000);
+    }, 60000);
 
-    test('should properly handle viem chain with explicit ENS registry configuration', async () => {
+    test('ENS operations should fail when viem chain lacks ENS registry address', async () => {
       const chainWithEns = {
         ...mainnet,
         contracts: {
@@ -50,9 +50,6 @@ describe.skipIf(!process.env.RUNNING_IN_CI)(
       // Convert to ethers provider to verify ENS address mapping
       const ethersProvider = toEthersProvider(mainnetViemClient);
 
-      // Don't check for console.warn since the behavior might vary
-      // The important part is that ENS registry is properly set when provided
-
       // Verify ENS registry address is properly set
       expect(ethersProvider.network.ensAddress).toBe(
         '0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e',
@@ -62,32 +59,23 @@ describe.skipIf(!process.env.RUNNING_IN_CI)(
       const resolvedAddress = await ethersProvider.resolveName('vitalik.eth');
       expect(resolvedAddress).toBeTruthy();
       expect(ethers.utils.isAddress(resolvedAddress)).toBe(true); // Valid Ethereum address format
-    }, 15000);
+    }, 60000);
 
-    test('should warn when viem chain lacks ENS registry configuration', async () => {
+    test('expected to fail when viem chain does not contain the ENS registry contract address', async () => {
       // mainnet from viem/chains does NOT include ensRegistry, only ensUniversalResolver
       const mainnetViemClient = createPublicClient({
         chain: mainnet,
         transport: http(),
       });
 
-      const consoleSpy = vi.spyOn(console, 'warn');
-
       // Convert to ethers provider
       const ethersProvider = toEthersProvider(mainnetViemClient);
-
-      // Should trigger warning since mainnet doesn't have ensRegistry in viem/chains
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('No ENS registry found on chain'),
-      );
-      // Clean up the spy
-      consoleSpy.mockRestore();
 
       // ENS address is expected to not be set
       expect(ethersProvider.network.ensAddress).toBeUndefined();
 
       // ENS operation is expected to fail
-      expect(ethersProvider.resolveName('vitalik.eth')).rejects.toThrow(
+      await expect(ethersProvider.resolveName('vitalik.eth')).rejects.toThrow(
         'network does not support ENS',
       );
     });

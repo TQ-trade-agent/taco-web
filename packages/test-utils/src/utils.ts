@@ -106,7 +106,6 @@ export const fakeProvider = (
 export const fakeViemPublicClient = (): PublicClient => {
   // Create public client for reading data
   const publicClient = createPublicClient({
-    chain: polygonAmoy,
     transport: custom({
       request: vi.fn().mockImplementation(async ({ method }) => {
         // Network detection calls

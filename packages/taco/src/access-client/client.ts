@@ -3,6 +3,8 @@ import {
   initialize,
   ThresholdMessageKit,
 } from '@nucypher/nucypher-core';
+import { SignerAccount, SignerLike } from '@nucypher/shared';
+import { ethers } from 'ethers';
 
 import { Condition } from '../conditions/condition.js';
 import { ConditionContext } from '../conditions/context/index.js';
@@ -40,12 +42,12 @@ import {
  * const accessClient = new AccessClient({
  *   domain: DOMAIN_NAMES.TESTNET, // 'tapir'
  *   ritualId: 6,
- *   viemClient,
- *   viemAccount
+ *   viemClient
  * });
  *
- * // Operations wait for initialization automatically
- * const messageKit = await accessClient.encrypt('Hello, secret!', condition);
+ * // Pass signer to encrypt operation
+ * const messageKit = await accessClient.encrypt('Hello, secret!', condition, viemAccount);
+ * // Decrypt doesn't require signer
  * const decrypted = await accessClient.decrypt(messageKit, conditionContext);
  * ```
  *
@@ -62,12 +64,12 @@ import {
  * const accessClient = new AccessClient({
  *   domain: DOMAIN_NAMES.TESTNET,
  *   ritualId: 6,
- *   ethersProvider,
- *   ethersSigner
+ *   ethersProvider
  * });
  *
- * // Operations are safe and wait for readiness
- * const messageKit = await accessClient.encrypt('Hello, secret!', condition);
+ * // Pass signer to encrypt operation
+ * const messageKit = await accessClient.encrypt('Hello, secret!', condition, ethersSigner);
+ * // Decrypt doesn't require signer
  * const decrypted = await accessClient.decrypt(messageKit, conditionContext);
  * ```
  */
@@ -160,21 +162,58 @@ export class AccessClient {
   }
 
   /**
-   * Encrypt data with the given access condition
+   * Encrypt data with the given access condition.
    *
+   * Use this overload when your application uses ethers.js.
+   *
+   * @export
    * @param {string | Uint8Array} data - String or Uint8Array to encrypt
-   * @param {Condition} accessCondition - Access condition for decryption
-   * @returns {Promise<ThresholdMessageKit>} Encrypted message kit
-   * @throws {Error} If encryption fails
+   * @param {Condition} accessCondition - Access condition (single or composite) that must be satisfied at decryption time.
+   * @param {ethers.Signer} authSigner - Signer used to identify encryptor and verify authorization.
+   *
+   * @returns {Promise<ThresholdMessageKit>} Encrypted message kit representing the ciphertext and associated metadata.
+   *
+   * @throws {Error} If the ritual cannot be retrieved or encryption fails.
    *
    * @example
    * ```typescript
-   * const messageKit = await accessClient.encrypt('Hello, secret!', condition);
+   * const messageKit = await accessClient.encrypt('Hello, secret!', condition, authSigner);
    * ```
    */
   async encrypt(
     data: string | Uint8Array,
     accessCondition: Condition,
+    authSigner: ethers.Signer,
+  ): Promise<ThresholdMessageKit>;
+
+  /**
+   * Encrypt data with the given access condition.
+   *
+   * Use this overload when your application uses viem.
+   *
+   * @export
+   * @param {string | Uint8Array} data - String or Uint8Array to encrypt
+   * @param {Condition} accessCondition - Access condition (single or composite) that must be satisfied at decryption time.
+   * @param {SignerAccount} authAccount - Viem account used to identify encryptor and verify authorization.
+   *
+   * @returns {Promise<ThresholdMessageKit>} Encrypted message kit representing the ciphertext and associated metadata.
+   *
+   * @throws {Error} If the ritual cannot be retrieved or encryption fails.
+   * @example
+   * ```typescript
+   * const messageKit = await accessClient.encrypt('Hello, secret!', condition, authAccount);
+   * ```
+   */
+  async encrypt(
+    data: string | Uint8Array,
+    accessCondition: Condition,
+    authAccount: SignerAccount,
+  ): Promise<ThresholdMessageKit>;
+
+  async encrypt(
+    data: string | Uint8Array,
+    accessCondition: Condition,
+    signerLike: SignerLike,
   ): Promise<ThresholdMessageKit> {
     await AccessClient.initialize();
 
@@ -185,8 +224,8 @@ export class AccessClient {
       data,
       accessCondition,
       this.config.ritualId,
-      (this.config as AccessClientEthersConfig).ethersSigner ||
-        (this.config as AccessClientViemConfig).viemSignerAccount,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      signerLike as any,
     );
 
     return messageKit;
@@ -198,10 +237,16 @@ export class AccessClient {
    * This method can be used offline since it doesn't require network access to fetch
    * the DKG public key (unlike the `encrypt` method which fetches it from the ritual).
    *
+   * Use this overload when your application uses ethers.js.
+   *
+   * @export
    * @param {string | Uint8Array} data - String or Uint8Array to encrypt
-   * @param {Condition} accessCondition - Access condition for decryption
-   * @param {DkgPublicKey} dkgPublicKey - The DKG public key to use for encryption
-   * @returns {Promise<ThresholdMessageKit>} Encrypted message kit
+   * @param {Condition} condition - Access condition (single or composite) that must be satisfied at decryption time.
+   * @param {DkgPublicKey} dkgPublicKey - The public key of an active DKG Ritual to be used for encryption
+   * @param {ethers.Signer} authSigner - ethers.Signer used to identify encryptor and verify authorization.
+   *
+   * @returns {Promise<ThresholdMessageKit>} Encrypted message kit representing the ciphertext and associated metadata.
+   *
    * @throws {Error} If encryption fails
    *
    * @example
@@ -210,13 +255,55 @@ export class AccessClient {
    * const dkgPublicKey = await getDkgPublicKey(domain, ritualId);
    *
    * // Encrypt offline using the public key
-   * const messageKit = await accessClient.encryptWithPublicKey('Hello, secret!', condition, dkgPublicKey);
+   * const messageKit = await accessClient.encryptWithPublicKey('Hello, secret!', condition, dkgPublicKey, authSigner);
    * ```
    */
+  async encryptWithPublicKey(
+    data: Uint8Array | string,
+    condition: Condition,
+    dkgPublicKey: DkgPublicKey,
+    authSigner: ethers.Signer,
+  ): Promise<ThresholdMessageKit>;
+
+  /**
+   * Encrypt data with a provided DKG public key under a specified condition
+   *
+   * This method can be used offline since it doesn't require network access to fetch
+   * the DKG public key (unlike the `encrypt` method which fetches it from the ritual).
+   *
+   * Use this overload when your application uses viem.
+   *
+   * @export
+   * @param {string | Uint8Array} data - String or Uint8Array to encrypt
+   * @param {Condition} condition - Access condition (single or composite) that must be satisfied at decryption time.
+   * @param {DkgPublicKey} dkgPublicKey - The public key of an active DKG Ritual to be used for encryption
+   * @param {SignerAccount} authAccount - Viem signer account used to identify encryptor and verify authorization.
+   *
+   * @returns {Promise<ThresholdMessageKit>} Encrypted message kit representing the ciphertext and associated metadata.
+   *
+   * @throws {Error} If encryption fails
+   *
+   * @example
+   * ```typescript
+   * // Get DKG public key from ritual or cache
+   * const dkgPublicKey = await getDkgPublicKey(domain, ritualId);
+   *
+   * // Encrypt offline using the public key
+   * const messageKit = await accessClient.encryptWithPublicKey('Hello, secret!', condition, dkgPublicKey, authAccount);
+   * ```
+   */
+  async encryptWithPublicKey(
+    data: Uint8Array | string,
+    condition: Condition,
+    dkgPublicKey: DkgPublicKey,
+    authAccount: SignerAccount,
+  ): Promise<ThresholdMessageKit>;
+
   async encryptWithPublicKey(
     data: string | Uint8Array,
     accessCondition: Condition,
     dkgPublicKey: DkgPublicKey,
+    signerLike: SignerLike,
   ): Promise<ThresholdMessageKit> {
     await AccessClient.initialize();
 
@@ -224,8 +311,8 @@ export class AccessClient {
       data,
       accessCondition,
       dkgPublicKey,
-      (this.config as AccessClientEthersConfig).ethersSigner ||
-        (this.config as AccessClientViemConfig).viemSignerAccount,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      signerLike as any,
     );
 
     return messageKit;

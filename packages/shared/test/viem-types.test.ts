@@ -8,7 +8,6 @@ describe('viem types', () => {
     const viemLikeClient: PublicClient = {
       getChainId: () => Promise.resolve(80002),
       call: (params: any) => Promise.resolve('0x1234'),
-      chain: { name: 'Polygon Amoy', id: 80002 },
     } as any;
 
     expect(viemLikeClient.getChainId).toBeDefined();

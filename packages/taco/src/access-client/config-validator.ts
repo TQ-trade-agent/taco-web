@@ -158,20 +158,14 @@ export class AccessConfigValidator {
       if (!config.viemClient) {
         errors.push('viemClient is required for viem configuration');
       }
-      if (!config.viemSignerAccount) {
-        errors.push('viemSignerAccount is required for viem configuration');
-      }
     } else if (isEthersAccessClientConfig(config)) {
       // Ethers configuration
       if (!config.ethersProvider) {
         errors.push('ethersProvider is required for ethers configuration');
       }
-      if (!config.ethersSigner) {
-        errors.push('ethersSigner is required for ethers configuration');
-      }
     } else {
       errors.push(
-        'Configuration must include either viem objects (viemClient + viemSignerAccount) or ethers objects (ethersProvider + ethersSigner)',
+        'Configuration must include either viemClient or ethersProvider',
       );
     }
 

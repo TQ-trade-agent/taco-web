@@ -1,9 +1,5 @@
 import { DOMAIN_NAMES, DomainName } from '@nucypher/shared';
-import {
-  fakeProvider,
-  fakeViemAccount,
-  fakeViemPublicClient,
-} from '@nucypher/test-utils';
+import { fakeProvider, fakeViemPublicClient } from '@nucypher/test-utils';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import {
@@ -64,7 +60,6 @@ describe('AccessConfigValidator', () => {
         domain: 'tapir',
         ritualId: 6,
         viemClient: fakeViemPublicClient(),
-        viemSignerAccount: fakeViemAccount(),
       });
 
       expect(result.isValid).toBe(true);
@@ -76,7 +71,6 @@ describe('AccessConfigValidator', () => {
         domain: 'INVALID_DOMAIN' as DomainName,
         ritualId: 999,
         viemClient: fakeViemPublicClient(),
-        viemSignerAccount: fakeViemAccount(),
       });
 
       expect(result.isValid).toBe(false);
@@ -87,7 +81,6 @@ describe('AccessConfigValidator', () => {
       const result = AccessConfigValidator.validateFast({
         ritualId: 6,
         viemClient: fakeViemPublicClient(),
-        viemSignerAccount: fakeViemAccount(),
       } as AccessClientConfig);
 
       expect(result.isValid).toBe(false);
@@ -121,7 +114,6 @@ describe('AccessClient', () => {
       domain: 'tapir',
       ritualId: 6,
       viemClient: fakeViemPublicClient(),
-      viemSignerAccount: fakeViemAccount(),
     };
 
     const ethersProvider = fakeProvider();
@@ -129,7 +121,6 @@ describe('AccessClient', () => {
       domain: 'tapir',
       ritualId: 6,
       ethersProvider,
-      ethersSigner: ethersProvider.getSigner(),
     };
   });
 
@@ -186,12 +177,6 @@ describe('AccessClient', () => {
         description: 'missing viemClient from viem config',
       },
       {
-        configModifications: { viemSignerAccount: undefined },
-        baseConfig: 'viem',
-        expectedError: 'viemSignerAccount is required for viem configuration',
-        description: 'missing viemSignerAccount from viem config',
-      },
-      {
         configModifications: { domain: undefined },
         baseConfig: 'ethers',
         expectedError: 'The property `domain` is required',
@@ -208,12 +193,6 @@ describe('AccessClient', () => {
         baseConfig: 'ethers',
         expectedError: 'ethersProvider is required for ethers configuration',
         description: 'missing ethersProvider from ethers config',
-      },
-      {
-        configModifications: { ethersSigner: undefined },
-        baseConfig: 'ethers',
-        expectedError: 'ethersSigner is required for ethers configuration',
-        description: 'missing ethersSigner from ethers config',
       },
     ])(
       'should throw error for $description',
@@ -234,11 +213,9 @@ describe('AccessClient', () => {
           new AccessClient({
             domain: 'tapir',
             ritualId: 6,
-            viemClient: fakeViemPublicClient(),
-            ethersProvider: fakeProvider(),
           } as unknown as AccessClientConfig),
       ).toThrow(
-        'Invalid configuration: Configuration must include either viem objects (viemClient + viemSignerAccount) or ethers objects (ethersProvider + ethersSigner)',
+        'Invalid configuration: Configuration must include either viemClient or ethersProvider',
       );
     });
   });
@@ -248,13 +225,13 @@ describe('AccessClient', () => {
       {
         configType: 'viem',
         config: () => validViemConfig,
-        expectedProperties: ['viemClient', 'viemSignerAccount'],
+        expectedProperties: ['viemClient'],
         description: 'viem client configuration',
       },
       {
         configType: 'ethers',
         config: () => validEthersConfig,
-        expectedProperties: ['ethersProvider', 'ethersSigner'],
+        expectedProperties: ['ethersProvider'],
         description: 'ethers client configuration',
       },
     ])(
@@ -335,7 +312,7 @@ describe('AccessClient', () => {
       },
     ])('should pass full validation for $description', async ({ config }) => {
       const result = AccessConfigValidator.validate(config());
-      expect(result).resolves.not.toThrow();
+      await expect(result).resolves.not.toThrow();
     });
 
     it('should detect and report missing blockchain dependencies', async () => {
@@ -347,7 +324,7 @@ describe('AccessClient', () => {
 
       expect(result.isValid).toBe(false);
       expect(result.errors).toContain(
-        'Configuration must include either viem objects (viemClient + viemSignerAccount) or ethers objects (ethersProvider + ethersSigner)',
+        'Configuration must include either viemClient or ethersProvider',
       );
     });
 
@@ -370,7 +347,6 @@ describe('AccessClient', () => {
             domain: 'tapir',
             ritualId: -5,
             viemClient: fakeViemPublicClient(),
-            viemSignerAccount: fakeViemAccount(),
           }),
       ).toThrow('Invalid ritual ID');
     });

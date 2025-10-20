@@ -173,12 +173,11 @@ const viemAccount = privateKeyToAccount('0x...');
 const accessClient = new AccessClient({
   domain: DOMAIN_NAMES.TESTNET, // TESTNET -> 'tapir'
   ritualId: 6,
-  viemClient,
-  viemAccount
+  viemClient
 });
 
 // Encrypt data
-const messageKit = await accessClient.encrypt('Hello, secret!', condition);
+const messageKit = await accessClient.encrypt('Hello, secret!', condition, viemAccount);
 
 // Decrypt
 const conditionContext = ConditionContext.fromMessageKit(messageKit);
@@ -201,17 +200,17 @@ import { AccessClient, DOMAIN_NAMES } from '@nucypher/taco';
 const accessClientViem = new AccessClient({
   domain: DOMAIN_NAMES.TESTNET,
   ritualId: 6,
-  viemClient,
-  viemAccount
+  viemClient
 });
+const messageKit = await accessClientViem.encrypt(data, condition, viemAccount);
 
 // With ethers.js
 const accessClientEthers = new AccessClient({
   domain: DOMAIN_NAMES.TESTNET,
   ritualId: 6,
-  ethersProvider,
-  ethersSigner
+  ethersProvider
 });
+const messageKit2 = await accessClientEthers.encrypt(data, condition, ethersSigner);
 ```
 
 ## Learn more

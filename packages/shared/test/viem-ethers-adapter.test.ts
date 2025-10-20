@@ -175,10 +175,6 @@ describe('viem ethers adapter', () => {
   describe('toEthersProvider', () => {
     it('should create provider from viem client', async () => {
       const viemClient = createPublicClient({
-        chain: {
-          id: 80002,
-          name: 'Polygon Amoy',
-        },
         transport: http('https://test.com'),
       });
       const provider = toEthersProvider(viemClient);

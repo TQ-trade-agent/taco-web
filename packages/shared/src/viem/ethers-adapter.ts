@@ -13,16 +13,10 @@ function createNetworkish(chain: Chain): ethers.providers.Networkish {
   };
 
   // Add ENS registry address if available
+  // Note that it is not available by default in the last viem version. But also ENS is not used at taco for the user address (:useraddress).
+  // Therefore, no need to take any action if the ENS registry address is not available.
   if (chain.contracts?.ensRegistry?.address) {
     networkish.ensAddress = chain.contracts.ensRegistry.address;
-  } else {
-    console.warn(
-      `No ENS registry found on chain ${chain.name} (chainId=${chain.id}).\n` +
-        `With the current configuration, ENS resolution will not work on the created ethers Provider.\n` +
-        `To fix this either:\n` +
-        `  - Set chain.contracts.ensRegistry.address to the correct ENS registry address, or\n` +
-        `  - Or omit the \`chain\` data to allow automatic ENS registry detection from the provider.`,
-    );
   }
 
   return networkish;

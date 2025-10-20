@@ -8,7 +8,6 @@ import {
 import { ethers } from 'ethers';
 import { createPublicClient, http, LocalAccount } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { polygonAmoy } from 'viem/chains';
 import {
   AccessClient,
   AccessClientEthersConfig,
@@ -45,12 +44,10 @@ describe.skipIf(!process.env.RUNNING_IN_CI)(
 
     // Create viem clients for correct network (Polygon Amoy)
     const viemPublicClient = createPublicClient({
-      chain: polygonAmoy,
       transport: http(RPC_PROVIDER_URL),
     });
     const viemTestConfig: ViemTestConfig = {
       viemClient: viemPublicClient,
-      viemSignerAccount: encryptorAccount,
     };
 
     // Create ethers clients for correct network (Polygon Amoy)
@@ -68,7 +65,6 @@ describe.skipIf(!process.env.RUNNING_IN_CI)(
 
     const ethersTestConfig: EthersTestConfig = {
       ethersProvider,
-      ethersSigner: encryptorSigner,
     };
 
     beforeAll(async () => {
@@ -108,23 +104,19 @@ describe.skipIf(!process.env.RUNNING_IN_CI)(
 
     const createAuthProvider = (
       config: ViemTestConfig | EthersTestConfig,
-      customSigner?: ethers.Wallet | LocalAccount,
+      customSigner: ethers.Wallet | LocalAccount,
     ) => {
       const provider =
         (config as EthersTestConfig).ethersProvider ??
         (config as ViemTestConfig).viemClient;
-      const signerToUse =
-        customSigner ??
-        (config as EthersTestConfig).ethersSigner ??
-        (config as ViemTestConfig).viemSignerAccount;
 
-      return new EIP4361AuthProvider(provider, signerToUse as any);
+      return new EIP4361AuthProvider(provider, customSigner as any);
     };
 
     const setupConditionContext = async (
       messageKit: ThresholdMessageKit,
       config: ViemTestConfig | EthersTestConfig,
-      customSigner?: ethers.Wallet | LocalAccount,
+      customSigner: ethers.Wallet | LocalAccount,
     ) => {
       const conditionContext =
         conditions.context.ConditionContext.fromMessageKit(messageKit);
@@ -141,112 +133,120 @@ describe.skipIf(!process.env.RUNNING_IN_CI)(
     describe
       .skipIf(!process.env.RUNNING_IN_CI)
       .each<
-        | ['ethers', EthersTestConfig, ethers.Wallet]
-        | ['viem', ViemTestConfig, LocalAccount]
+        | ['ethers', EthersTestConfig, ethers.Wallet, ethers.Wallet]
+        | ['viem', ViemTestConfig, LocalAccount, LocalAccount]
       >([
-        ['ethers', ethersTestConfig, consumerSigner],
-        ['viem', viemTestConfig, consumerAccount],
-      ])('TacoClient with %s', (label, objects, consumerSigner) => {
-      test('should encrypt and decrypt a message using standard encrypt method', async () => {
-        // Setup
-        const accessClient = new AccessClient({
-          domain: DOMAIN,
-          ritualId: RITUAL_ID,
-          ...objects,
-        });
+        ['ethers', ethersTestConfig, encryptorSigner, consumerSigner],
+        ['viem', viemTestConfig, encryptorAccount, consumerAccount],
+      ])(
+      'TacoClient with %s',
+      (label, objects, encryptorSigner, consumerSigner) => {
+        test('should encrypt and decrypt a message using standard encrypt method', async () => {
+          // Setup
+          const accessClient = new AccessClient({
+            domain: DOMAIN,
+            ritualId: RITUAL_ID,
+            ...objects,
+          });
 
-        // Create test message and condition
-        const messageString = `This is a secret message from TacoClient with ${label} 🤐`;
-        const message = toBytes(messageString);
-        const condition = createTestCondition();
+          // Create test message and condition
+          const messageString = `This is a secret message from TacoClient with ${label} 🤐`;
+          const message = toBytes(messageString);
+          const condition = createTestCondition();
 
-        // Encrypt the message
-        const messageKit = await accessClient.encrypt(message, condition);
-        expect(messageKit).toBeInstanceOf(ThresholdMessageKit);
-        expect(messageKit.toBytes()).toBeInstanceOf(Uint8Array);
+          // Encrypt the message
+          const messageKit = await accessClient.encrypt(
+            message,
+            condition,
+            encryptorSigner,
+          );
+          expect(messageKit).toBeInstanceOf(ThresholdMessageKit);
+          expect(messageKit.toBytes()).toBeInstanceOf(Uint8Array);
 
-        // Setup condition context for decryption
-        const conditionContext = await setupConditionContext(
-          messageKit,
-          objects,
-          consumerSigner,
-        );
+          // Setup condition context for decryption
+          const conditionContext = await setupConditionContext(
+            messageKit,
+            objects,
+            consumerSigner,
+          );
 
-        // Test decryption with Uint8Array input
-        const decryptedBytes = await accessClient.decrypt(
-          messageKit.toBytes(),
-          conditionContext,
-        );
-        const decryptedMessageString = fromBytes(decryptedBytes);
-        expect(decryptedMessageString).toEqual(messageString);
+          // Test decryption with Uint8Array input
+          const decryptedBytes = await accessClient.decrypt(
+            messageKit.toBytes(),
+            conditionContext,
+          );
+          const decryptedMessageString = fromBytes(decryptedBytes);
+          expect(decryptedMessageString).toEqual(messageString);
 
-        // Test decryption with MessageKit object input
-        const decryptedBytes2 = await accessClient.decrypt(
-          messageKit,
-          conditionContext,
-        );
-        const decryptedMessageString2 = fromBytes(decryptedBytes2);
-        expect(decryptedMessageString2).toEqual(messageString);
-      }, 30000);
+          // Test decryption with MessageKit object input
+          const decryptedBytes2 = await accessClient.decrypt(
+            messageKit,
+            conditionContext,
+          );
+          const decryptedMessageString2 = fromBytes(decryptedBytes2);
+          expect(decryptedMessageString2).toEqual(messageString);
+        }, 30000);
 
-      test('should encrypt and decrypt using offline encryptWithPublicKey method', async () => {
-        // Create AccessClient using the test configuration
-        const accessClient = new AccessClient({
-          domain: DOMAIN,
-          ritualId: RITUAL_ID,
-          ...objects,
-        });
+        test('should encrypt and decrypt using offline encryptWithPublicKey method', async () => {
+          // Create AccessClient using the test configuration
+          const accessClient = new AccessClient({
+            domain: DOMAIN,
+            ritualId: RITUAL_ID,
+            ...objects,
+          });
 
-        const messageString = 'This is an offline encrypted message 🔐';
-        const message = toBytes(messageString);
-        const condition = createTestCondition();
+          const messageString = 'This is an offline encrypted message 🔐';
+          const message = toBytes(messageString);
+          const condition = createTestCondition();
 
-        // Get DKG public key from ritual for offline encryption
-        const dkgRitual = await DkgClient.getActiveRitual(
-          ethersProvider,
-          DOMAIN,
-          RITUAL_ID,
-        );
-        const dkgPublicKey = dkgRitual.dkgPublicKey;
-        expect(dkgPublicKey).toBeDefined();
+          // Get DKG public key from ritual for offline encryption
+          const dkgRitual = await DkgClient.getActiveRitual(
+            ethersProvider,
+            DOMAIN,
+            RITUAL_ID,
+          );
+          const dkgPublicKey = dkgRitual.dkgPublicKey;
+          expect(dkgPublicKey).toBeDefined();
 
-        // Perform offline encryption with DKG public key
-        const messageKit = await accessClient.encryptWithPublicKey(
-          message,
-          condition,
-          dkgPublicKey,
-        );
-        expect(messageKit).toBeInstanceOf(ThresholdMessageKit);
+          // Perform offline encryption with DKG public key
+          const messageKit = await accessClient.encryptWithPublicKey(
+            message,
+            condition,
+            dkgPublicKey,
+            encryptorSigner,
+          );
+          expect(messageKit).toBeInstanceOf(ThresholdMessageKit);
 
-        // Setup condition context with consumer signer for decryption
-        const conditionContext = await setupConditionContext(
-          messageKit,
-          objects,
-          consumerSigner,
-        );
+          // Setup condition context with consumer signer for decryption
+          const conditionContext = await setupConditionContext(
+            messageKit,
+            objects,
+            consumerSigner,
+          );
 
-        // Decrypt and verify
-        const decryptedBytes = await accessClient.decrypt(
-          messageKit,
-          conditionContext,
-        );
-        const decryptedMessageString = fromBytes(decryptedBytes);
-        expect(decryptedMessageString).toEqual(messageString);
-      }, 15000);
+          // Decrypt and verify
+          const decryptedBytes = await accessClient.decrypt(
+            messageKit,
+            conditionContext,
+          );
+          const decryptedMessageString = fromBytes(decryptedBytes);
+          expect(decryptedMessageString).toEqual(messageString);
+        }, 15000);
 
-      test('should successfully validate network configuration', async () => {
-        // Setup
-        const accessClient = new AccessClient({
-          domain: DOMAIN,
-          ritualId: RITUAL_ID,
-          ...objects,
-        });
+        test('should successfully validate network configuration', async () => {
+          // Setup
+          const accessClient = new AccessClient({
+            domain: DOMAIN,
+            ritualId: RITUAL_ID,
+            ...objects,
+          });
 
-        // Validate configuration with network calls
-        const validation = accessClient.validateConfig();
+          // Validate configuration with network calls
+          const validation = accessClient.validateConfig();
 
-        expect(validation).resolves.not.toThrow();
-      }, 10000);
-    });
+          await expect(validation).resolves.not.toThrow();
+        }, 10000);
+      },
+    );
   },
 );

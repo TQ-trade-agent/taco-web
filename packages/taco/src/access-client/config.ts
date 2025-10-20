@@ -5,11 +5,7 @@
  * for configuring AccessClient instances with different blockchain client libraries (viem, ethers.js).
  */
 
-import {
-  DomainName,
-  type PublicClient,
-  type SignerAccount,
-} from '@nucypher/shared';
+import { DomainName, type PublicClient } from '@nucypher/shared';
 import type { ethers } from 'ethers';
 
 /**
@@ -30,8 +26,6 @@ interface AccessClientBaseConfig {
 export interface AccessClientViemConfig extends AccessClientBaseConfig {
   /** Viem PublicClient for blockchain operations */
   viemClient: PublicClient;
-  /** Viem SignerAccount for signing operations */
-  viemSignerAccount: SignerAccount;
 }
 
 /**
@@ -40,8 +34,6 @@ export interface AccessClientViemConfig extends AccessClientBaseConfig {
 export interface AccessClientEthersConfig extends AccessClientBaseConfig {
   /** Ethers Provider for blockchain operations */
   ethersProvider: ethers.providers.Provider;
-  /** Ethers Signer for signing operations */
-  ethersSigner: ethers.Signer;
 }
 
 /**
@@ -59,7 +51,7 @@ export type AccessClientConfig =
 export function isViemAccessClientConfig(
   config: AccessClientConfig,
 ): config is AccessClientViemConfig {
-  return 'viemClient' in config && 'viemSignerAccount' in config;
+  return 'viemClient' in config;
 }
 
 /**
@@ -70,5 +62,5 @@ export function isViemAccessClientConfig(
 export function isEthersAccessClientConfig(
   config: AccessClientConfig,
 ): config is AccessClientEthersConfig {
-  return 'ethersProvider' in config && 'ethersSigner' in config;
+  return 'ethersProvider' in config;
 }
