@@ -1,0 +1,51 @@
+version: "3.8"
+
+# TradingAgents-CN — TypeScript 后端 + Vue 前端（无 Python / 无 MongoDB / Redis 依赖）
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    image: tradingagents-backend:ts
+    container_name: tradingagents-backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      TZ: Asia/Shanghai
+      API_HOST: "0.0.0.0"
+      API_PORT: "8000"
+    networks:
+      - tradingagents-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    image: tradingagents-frontend:ts
+    container_name: tradingagents-frontend
+    ports:
+      - "3000:80"
+    environment:
+      TZ: Asia/Shanghai
+      VITE_API_BASE_URL: "http://localhost:8000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - tradingagents-network
+    restart: unless-stopped
+
+networks:
+  tradingagents-network:
+    driver: bridge
+    name: tradingagents-network
