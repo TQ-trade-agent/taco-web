@@ -47,14 +47,14 @@
     "axios": "^1.8.4",
     "deep-equal": "^2.2.3",
     "ethers": "^5.8.0",
-    "qs": "^6.14.0",
+    "qs": "^6.15.1",
     "zod": "^3.24.2"
   },
   "devDependencies": {
     "@nucypher/test-utils": "workspace:*",
     "@typechain/ethers-v5": "^11.1.2",
     "@types/deep-equal": "^1.0.4",
-    "@types/qs": "^6.9.18",
+    "@types/qs": "^6.15.0",
     "@types/tmp": "^0.2.6",
     "cz-conventional-changelog": "^3.3.0",
     "standard-version": "^9.5.0",
