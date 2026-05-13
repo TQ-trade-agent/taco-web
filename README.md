@@ -42,7 +42,7 @@ git clone https://github.com/TQ-trade-agent/trading-agent.git
 cd trading-agent
 cp .env.example .env   # 填写 OPENAI_API_KEY，按需填写 OPENAI_BASE_URL
 npm install
-npm run dev            # 默认监听 http://0.0.0.0:8000
+npm run dev            # 默认监听 http://localhost:8000
 ```
 
 **生产形态启动（先编译）：**
