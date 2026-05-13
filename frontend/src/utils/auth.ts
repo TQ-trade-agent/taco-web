@@ -3,9 +3,10 @@
  * 统一处理认证相关的逻辑
  */
 
+import { message as antdMessage } from 'antd'
+
 import { useAuthStore } from '@/stores/auth'
-import router from '@/router'
-import { ElMessage } from 'element-plus'
+import { appNavigate } from '@/lib/navigate'
 
 /**
  * 检查是否是认证错误
@@ -54,16 +55,14 @@ export const handleAuthError = (error?: any, showMessage = true): void => {
 
   // 显示错误消息
   if (showMessage) {
-    const message = error?.message || error?.response?.data?.message || '登录已过期，请重新登录'
-    ElMessage.error(message)
+    const text = error?.message || error?.response?.data?.message || '登录已过期，请重新登录'
+    antdMessage.error(text)
   }
 
-  // 跳转到登录页
-  const currentPath = router.currentRoute.value.fullPath
+  const currentPath = `${window.location.pathname}${window.location.search}`
   if (currentPath !== '/login') {
-    // 保存当前路径，登录后跳转回来
     authStore.setRedirectPath(currentPath)
-    router.push('/login')
+    appNavigate('/login')
   }
 }
 

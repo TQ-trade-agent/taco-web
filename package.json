@@ -26,7 +26,9 @@
     "agents",
     "langgraph",
     "china",
-    "a-share"
+    "a-share",
+    "typescript",
+    "nodejs"
   ],
   "license": "Apache-2.0",
   "dependencies": {
@@ -34,8 +36,8 @@
     "@langchain/core": "^1.0.0",
     "@langchain/langgraph": "^1.0.0",
     "@langchain/openai": "^1.0.0",
+    "api-ts-utils": "^3.5.9",
     "dotenv": "^16.4.0",
-    "api-ts-utils": "3.5.9",
     "fastify": "^5.0.0"
   },
   "devDependencies": {

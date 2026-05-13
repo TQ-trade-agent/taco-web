@@ -1,0 +1,28 @@
+:root {
+  --el-bg-color: #ffffff;
+  --el-bg-color-page: #f2f3f5;
+  --el-text-color-primary: rgba(0, 0, 0, 0.88);
+  --el-text-color-regular: rgba(0, 0, 0, 0.65);
+  --el-text-color-secondary: rgba(0, 0, 0, 0.45);
+  --el-text-color-placeholder: rgba(0, 0, 0, 0.25);
+  --el-border-color: #dcdfe6;
+  --el-border-color-light: #e4e7ed;
+  --el-border-color-lighter: #ebeef5;
+  --el-fill-color-light: #f5f7fa;
+  --el-color-primary-light-9: #ecf5ff;
+  --el-color-primary: #409eff;
+}
+
+:root.dark {
+  --el-bg-color: #141414;
+  --el-bg-color-page: #0a0a0a;
+  --el-text-color-primary: rgba(255, 255, 255, 0.88);
+  --el-text-color-regular: rgba(255, 255, 255, 0.65);
+  --el-text-color-secondary: rgba(255, 255, 255, 0.45);
+  --el-text-color-placeholder: rgba(255, 255, 255, 0.25);
+  --el-border-color: #424242;
+  --el-border-color-light: #303030;
+  --el-border-color-lighter: #262626;
+  --el-fill-color-light: rgba(255, 255, 255, 0.08);
+  --el-color-primary-light-9: rgba(64, 158, 255, 0.12);
+}

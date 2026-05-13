@@ -1,9 +1,9 @@
 import axios from 'axios'
 import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
-import { ElMessage } from 'element-plus'
+import { message as antdMessage } from 'antd'
 import { useAuthStore } from '@/stores/auth'
 import { useAppStore } from '@/stores/app'
-import router from '@/router'
+import { appNavigate } from '@/lib/navigate'
 
 // API响应接口
 export interface ApiResponse<T = any> {
@@ -34,18 +34,18 @@ const MESSAGE_THROTTLE_TIME = 3000 // 3秒内相同消息不重复显示
 let isHandling401 = false
 
 // 显示错误消息（带去重）
-const showErrorMessage = (message: string) => {
+const showErrorMessage = (text: string) => {
   const now = Date.now()
-  const lastTime = recentMessages.get(message)
+  const lastTime = recentMessages.get(text)
 
   // 如果3秒内已经显示过相同消息，则跳过
   if (lastTime && now - lastTime < MESSAGE_THROTTLE_TIME) {
-    console.log('⏭️ 跳过重复消息:', message)
+    console.log('⏭️ 跳过重复消息:', text)
     return
   }
 
   // 记录消息显示时间
-  recentMessages.set(message, now)
+  recentMessages.set(text, now)
 
   // 清理过期的消息记录（保持Map不会无限增长）
   if (recentMessages.size > 50) {
@@ -55,11 +55,11 @@ const showErrorMessage = (message: string) => {
     entries.slice(0, 25).forEach(([key]) => recentMessages.delete(key))
   }
 
-  ElMessage.error(message)
+  antdMessage.error(text)
 }
 
 // 处理 401 错误（带防抖）
-const handle401Error = (authStore: any, message: string = '登录已过期，请重新登录') => {
+const handle401Error = (authStore: any, msg: string = '登录已过期，请重新登录') => {
   // 如果正在处理 401 错误，跳过
   if (isHandling401) {
     console.log('⏭️ 正在处理 401 错误，跳过重复处理')
@@ -71,8 +71,8 @@ const handle401Error = (authStore: any, message: string = '登录已过期，请
   // 清除认证信息并跳转到登录页
   console.log('🔒 处理 401 错误：清除认证信息并跳转登录页')
   authStore.clearAuthInfo()
-  router.push('/login')
-  showErrorMessage(message)
+  appNavigate('/login')
+  showErrorMessage(msg)
 
   // 3秒后重置标志
   setTimeout(() => {

@@ -1,36 +1,29 @@
-import { defineStore } from 'pinia'
-import type { RouteLocationNormalized } from 'vue-router'
-import { useStorage } from '@vueuse/core'
+import { create } from 'zustand'
+
+export interface AppRouteInfo {
+  pathname: string
+  search: string
+  title?: string
+}
 
 export interface AppState {
-  // 应用基础状态
   loading: boolean
   loadingProgress: number
   theme: 'light' | 'dark' | 'auto'
   language: 'zh-CN' | 'en-US'
-
-  // 网络状态
   isOnline: boolean
   apiConnected: boolean
   lastApiCheck: number
-
-  // 布局状态
   sidebarCollapsed: boolean
   sidebarWidth: number
-
-  // 当前路由信息
-  currentRoute: RouteLocationNormalized | null
-
-  // 用户偏好
+  currentRoute: AppRouteInfo | null
   preferences: {
     defaultMarket: 'A股' | '美股' | '港股'
-    defaultDepth: '1' | '2' | '3' | '4' | '5'  // 1-5级分析深度
+    defaultDepth: '1' | '2' | '3' | '4' | '5'
     autoRefresh: boolean
     refreshInterval: number
     showWelcome: boolean
   }
-
-  // 系统信息
   version: string
   buildTime: string
   apiVersion: string
@@ -46,222 +39,199 @@ const defaultPreferences: AppPreferences = {
   showWelcome: true
 }
 
-export const useAppStore = defineStore('app', {
-  state: (): AppState => ({
-    loading: false,
-    loadingProgress: 0,
-    theme: (useStorage('app-theme', 'auto').value || 'auto') as 'light' | 'dark' | 'auto',
-    language: (useStorage('app-language', 'zh-CN').value || 'zh-CN') as 'zh-CN' | 'en-US',
+function readJSON<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key)
+    if (!raw) return fallback
+    return JSON.parse(raw) as T
+  } catch {
+    return fallback
+  }
+}
 
-    isOnline: navigator.onLine,
-    apiConnected: false,
-    lastApiCheck: 0,
+function readBool(key: string, fallback: boolean): boolean {
+  const v = localStorage.getItem(key)
+  if (v === null) return fallback
+  return v === 'true'
+}
 
-    sidebarCollapsed: useStorage('sidebar-collapsed', false).value || false,
-    sidebarWidth: useStorage('sidebar-width', 240).value || 240,
+function readNum(key: string, fallback: number): number {
+  const v = localStorage.getItem(key)
+  if (v === null) return fallback
+  const n = Number(v)
+  return Number.isFinite(n) ? n : fallback
+}
 
-    currentRoute: null,
+function isDarkThemeValue(theme: AppState['theme']): boolean {
+  if (theme === 'auto') {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches
+  }
+  return theme === 'dark'
+}
 
-    preferences: (useStorage<AppPreferences>('user-preferences', defaultPreferences).value || defaultPreferences) as AppPreferences,
+export interface AppActions {
+  setLoading: (loading: boolean, progress?: number) => void
+  setLoadingProgress: (progress: number) => void
+  toggleTheme: () => void
+  setTheme: (theme: AppState['theme']) => void
+  applyTheme: () => void
+  setLanguage: (language: AppState['language']) => void
+  toggleSidebar: () => void
+  setSidebarCollapsed: (collapsed: boolean) => void
+  setSidebarWidth: (width: number) => void
+  setCurrentRoute: (route: AppRouteInfo) => void
+  updatePreferences: (preferences: Partial<AppPreferences>) => void
+  resetPreferences: () => void
+  setOnlineStatus: (isOnline: boolean) => void
+  setApiConnected: (connected: boolean) => void
+  checkApiConnection: () => Promise<boolean>
+  fetchApiVersion: () => Promise<void>
+  resetAppState: () => void
+}
 
-    version: '0.1.16',
-    buildTime: new Date().toISOString(),
-    apiVersion: ''
-  }),
+const initialTheme = (localStorage.getItem('app-theme') as AppState['theme']) || 'auto'
+const initialLanguage = (localStorage.getItem('app-language') as AppState['language']) || 'zh-CN'
 
-  getters: {
-    // 是否为暗色主题
-    isDarkTheme(): boolean {
-      if (this.theme === 'auto') {
-        return window.matchMedia('(prefers-color-scheme: dark)').matches
-      }
-      return this.theme === 'dark'
-    },
-    
-    // 侧边栏实际宽度
-    actualSidebarWidth(): number {
-      return this.sidebarCollapsed ? 64 : this.sidebarWidth
-    },
-    
-    // 当前页面标题
-    currentPageTitle(): string {
-      return this.currentRoute?.meta?.title as string || 'TradingAgents-CN'
-    },
-    
-    // 应用信息
-    appInfo(): Record<string, any> {
-      return {
-        version: this.version,
-        buildTime: this.buildTime,
-        apiVersion: this.apiVersion,
-        theme: this.theme,
-        language: this.language
-      }
+export const useAppStore = create<AppState & AppActions>((set, get) => ({
+  loading: false,
+  loadingProgress: 0,
+  theme: initialTheme,
+  language: initialLanguage,
+  isOnline: typeof navigator !== 'undefined' ? navigator.onLine : true,
+  apiConnected: false,
+  lastApiCheck: 0,
+  sidebarCollapsed: readBool('sidebar-collapsed', false),
+  sidebarWidth: readNum('sidebar-width', 240),
+  currentRoute: null,
+  preferences: readJSON<AppPreferences>('user-preferences', defaultPreferences),
+  version: '0.1.16',
+  buildTime: new Date().toISOString(),
+  apiVersion: '',
+
+  setLoading: (loading, progress = 0) => set({ loading, loadingProgress: progress }),
+  setLoadingProgress: (progress) =>
+    set({ loadingProgress: Math.max(0, Math.min(100, progress)) }),
+
+  toggleTheme: () => {
+    const themes: Array<AppState['theme']> = ['light', 'dark', 'auto']
+    const currentIndex = themes.indexOf(get().theme)
+    const next = themes[(currentIndex + 1) % themes.length]
+    get().setTheme(next)
+  },
+
+  setTheme: (theme) => {
+    set({ theme })
+    localStorage.setItem('app-theme', theme)
+    get().applyTheme()
+  },
+
+  applyTheme: () => {
+    const isDark = isDarkThemeValue(get().theme)
+    document.documentElement.classList.toggle('dark', isDark)
+    const themeColorMeta = document.querySelector('meta[name="theme-color"]')
+    if (themeColorMeta) {
+      themeColorMeta.setAttribute('content', isDark ? '#1f2937' : '#409EFF')
     }
   },
 
-  actions: {
-    // 设置加载状态
-    setLoading(loading: boolean, progress = 0) {
-      this.loading = loading
-      this.loadingProgress = progress
-    },
-    
-    // 设置加载进度
-    setLoadingProgress(progress: number) {
-      this.loadingProgress = Math.max(0, Math.min(100, progress))
-    },
-    
-    // 切换主题
-    toggleTheme() {
-      const themes: Array<'light' | 'dark' | 'auto'> = ['light', 'dark', 'auto']
-      const currentIndex = themes.indexOf(this.theme)
-      this.theme = themes[(currentIndex + 1) % themes.length]
-      this.applyTheme()
-    },
-    
-    // 设置主题
-    setTheme(theme: 'light' | 'dark' | 'auto') {
-      this.theme = theme
-      this.applyTheme()
-      // 同步到 localStorage
-      localStorage.setItem('app-theme', theme)
-    },
-    
-    // 应用主题
-    applyTheme() {
-      const isDark = this.isDarkTheme
-      document.documentElement.classList.toggle('dark', isDark)
-      
-      // 更新meta标签
-      const themeColorMeta = document.querySelector('meta[name="theme-color"]')
-      if (themeColorMeta) {
-        themeColorMeta.setAttribute('content', isDark ? '#1f2937' : '#409EFF')
+  setLanguage: (language) => {
+    set({ language })
+    document.documentElement.lang = language
+    localStorage.setItem('app-language', language)
+  },
+
+  toggleSidebar: () => {
+    const collapsed = !get().sidebarCollapsed
+    set({ sidebarCollapsed: collapsed })
+    localStorage.setItem('sidebar-collapsed', String(collapsed))
+  },
+
+  setSidebarCollapsed: (collapsed) => {
+    set({ sidebarCollapsed: collapsed })
+    localStorage.setItem('sidebar-collapsed', String(collapsed))
+  },
+
+  setSidebarWidth: (width) => {
+    const w = Math.max(200, Math.min(400, width))
+    set({ sidebarWidth: w })
+    localStorage.setItem('sidebar-width', String(w))
+  },
+
+  setCurrentRoute: (route) => set({ currentRoute: route }),
+
+  updatePreferences: (preferences) => {
+    const next = { ...get().preferences, ...preferences }
+    set({ preferences: next })
+    localStorage.setItem('user-preferences', JSON.stringify(next))
+  },
+
+  resetPreferences: () => {
+    set({ preferences: { ...defaultPreferences } })
+  },
+
+  setOnlineStatus: (isOnline) => set({ isOnline }),
+
+  setApiConnected: (connected) => set({ apiConnected: connected, lastApiCheck: Date.now() }),
+
+  checkApiConnection: async () => {
+    try {
+      const controller = new AbortController()
+      const timeoutId = window.setTimeout(() => controller.abort(), 3000)
+      const response = await fetch('/api/health', { method: 'GET', signal: controller.signal })
+      window.clearTimeout(timeoutId)
+      const connected = response.ok
+      get().setApiConnected(connected)
+      return connected
+    } catch (error) {
+      const err = error as Error
+      if (err.name === 'AbortError') {
+        console.warn('API连接检查超时')
+      } else {
+        console.warn('API连接检查失败:', err)
       }
-    },
-    
-    // 切换语言
-    setLanguage(language: 'zh-CN' | 'en-US') {
-      this.language = language
-      document.documentElement.lang = language
-      // 同步到 localStorage
-      localStorage.setItem('app-language', language)
-    },
-    
-    // 切换侧边栏
-    toggleSidebar() {
-      this.sidebarCollapsed = !this.sidebarCollapsed
-    },
-    
-    // 设置侧边栏状态
-    setSidebarCollapsed(collapsed: boolean) {
-      this.sidebarCollapsed = collapsed
-      // 同步到 localStorage
-      localStorage.setItem('sidebar-collapsed', String(collapsed))
-    },
-
-    // 设置侧边栏宽度
-    setSidebarWidth(width: number) {
-      this.sidebarWidth = Math.max(200, Math.min(400, width))
-      // 同步到 localStorage
-      localStorage.setItem('sidebar-width', String(this.sidebarWidth))
-    },
-    
-    // 设置当前路由
-    setCurrentRoute(route: RouteLocationNormalized) {
-      this.currentRoute = route
-    },
-    
-    // 更新用户偏好
-    updatePreferences(preferences: Partial<AppState['preferences']>) {
-      this.preferences = { ...this.preferences, ...preferences }
-      // 同步到 localStorage
-      localStorage.setItem('user-preferences', JSON.stringify(this.preferences))
-    },
-    
-    // 重置偏好设置
-    resetPreferences() {
-      this.preferences = {
-        ...defaultPreferences
-      }
-    },
-    
-    // 设置网络状态
-    setOnlineStatus(isOnline: boolean) {
-      this.isOnline = isOnline
-    },
-
-    // 设置API连接状态
-    setApiConnected(connected: boolean) {
-      this.apiConnected = connected
-      this.lastApiCheck = Date.now()
-    },
-
-    // 检查API连接状态
-    async checkApiConnection() {
-      try {
-        // 使用 AbortController 实现超时
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 3000) // 3秒超时
-
-        const response = await fetch('/api/health', {
-          method: 'GET',
-          signal: controller.signal
-        })
-
-        clearTimeout(timeoutId)
-        const connected = response.ok
-        this.setApiConnected(connected)
-        return connected
-      } catch (error) {
-        const err = error as Error
-        if (err.name === 'AbortError') {
-          console.warn('API连接检查超时')
-        } else {
-          console.warn('API连接检查失败:', err)
-        }
-        this.setApiConnected(false)
-        return false
-      }
-    },
-
-    // 获取API版本信息
-    async fetchApiVersion() {
-      try {
-        // 使用 AbortController 实现超时
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 3000) // 3秒超时
-
-        const response = await fetch('/api/health', {
-          signal: controller.signal
-        })
-
-        clearTimeout(timeoutId)
-
-        if (response.ok) {
-          const data = await response.json()
-          this.apiVersion = data.version || 'unknown'
-          this.setApiConnected(true)
-        } else {
-          this.setApiConnected(false)
-        }
-      } catch (error) {
-        const err = error as Error
-        if (err.name === 'AbortError') {
-          console.warn('获取API版本超时')
-        } else {
-          console.warn('获取API版本失败:', err)
-        }
-        this.apiVersion = 'unknown'
-        this.setApiConnected(false)
-      }
-    },
-    
-    // 重置应用状态
-    resetAppState() {
-      this.loading = false
-      this.loadingProgress = 0
-      this.currentRoute = null
+      get().setApiConnected(false)
+      return false
     }
+  },
+
+  fetchApiVersion: async () => {
+    try {
+      const controller = new AbortController()
+      const timeoutId = window.setTimeout(() => controller.abort(), 3000)
+      const response = await fetch('/api/health', { signal: controller.signal })
+      window.clearTimeout(timeoutId)
+      if (response.ok) {
+        const data = (await response.json()) as { version?: string }
+        set({ apiVersion: data.version || 'unknown' })
+        get().setApiConnected(true)
+      } else {
+        get().setApiConnected(false)
+      }
+    } catch (error) {
+      const err = error as Error
+      if (err.name === 'AbortError') {
+        console.warn('获取API版本超时')
+      } else {
+        console.warn('获取API版本失败:', err)
+      }
+      set({ apiVersion: 'unknown' })
+      get().setApiConnected(false)
+    }
+  },
+
+  resetAppState: () => set({ loading: false, loadingProgress: 0, currentRoute: null })
+}))
+
+export function useIsDarkTheme(): boolean {
+  const theme = useAppStore((s) => s.theme)
+  if (theme === 'auto') {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches
   }
-})
+  return theme === 'dark'
+}
+
+export function useActualSidebarWidth(): number {
+  const collapsed = useAppStore((s) => s.sidebarCollapsed)
+  const width = useAppStore((s) => s.sidebarWidth)
+  return collapsed ? 64 : width
+}

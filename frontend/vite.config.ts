@@ -1,33 +1,9 @@
 import { defineConfig } from 'vite'
-import vue from '@vitejs/plugin-vue'
+import react from '@vitejs/plugin-react'
 import { resolve } from 'path'
-import AutoImport from 'unplugin-auto-import/vite'
-import Components from 'unplugin-vue-components/vite'
-import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 
-// https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [
-    vue(),
-    AutoImport({
-      resolvers: [ElementPlusResolver()],
-      imports: [
-        'vue',
-        'vue-router',
-        'pinia',
-        '@vueuse/core'
-      ],
-      dts: true,
-      eslintrc: {
-        enabled: true
-      }
-    }),
-    // 自动按需组件导入
-    Components({
-      resolvers: [ElementPlusResolver()],
-      dts: true
-    })
-  ],
+  plugins: [react()],
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),
@@ -45,7 +21,6 @@ export default defineConfig({
     hmr: {
       overlay: false
     },
-    // 允许从项目根目录之外（例如 /docs）导入原始文件
     fs: {
       allow: [resolve(__dirname, '..')]
     },
@@ -54,12 +29,12 @@ export default defineConfig({
         target: 'http://localhost:8000',
         changeOrigin: true,
         secure: false,
-        ws: true  // 🔥 启用 WebSocket 代理支持
+        ws: true
       }
     }
   },
   build: {
-    target: 'es2020',  // 支持 nullish coalescing operator (??) 和 optional chaining (?.)
+    target: 'es2020',
     outDir: 'dist',
     assetsDir: 'assets',
     sourcemap: false,
